@@ -83,7 +83,7 @@ local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1,-90,1,0)
 title.Position = UDim2.new(0,15,0,0)
 title.BackgroundTransparency = 1
-title.Text = "🏔 SEOHAESU - AUTO WALK"
+title.Text = "🏔 PS SCRIPT AUTO WALK"
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
@@ -168,8 +168,9 @@ listLayout.Padding = UDim.new(0,5)
 
 -- ====== Replay Variables ======
 local character, humanoidRootPart
-local isRecording, isPlaying, isPaused = false, false, false
+local isRecording, isPaused = false, false
 local recordData = {}
+local currentReplayToken = nil  -- token kontrol replay
 
 local function onCharacterAdded(char)
     character = char
@@ -194,17 +195,23 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local function playReplay(data)
-    if isPlaying then return end
-    isPlaying = true
+    -- Hentikan loop sebelumnya
+    local token = {}
+    currentReplayToken = token
     isPaused = false
+
     local speed = tonumber(speedBox.Text) or 1
     if speed <= 0 then speed = 1 end
 
     local index = 1
     local totalFrames = #data
-    while index <= totalFrames and isPlaying do
-        while isPaused do RunService.Heartbeat:Wait() end
-        if humanoidRootPart and humanoidRootPart.Parent then
+
+    while index <= totalFrames do
+        if currentReplayToken ~= token then break end  -- hentikan loop lama
+        while isPaused and currentReplayToken == token do
+            RunService.Heartbeat:Wait()
+        end
+        if humanoidRootPart and humanoidRootPart.Parent and currentReplayToken == token then
             local frame = data[math.floor(index)]
             local pos = frame.Position
             local look = frame.LookVector
@@ -218,7 +225,10 @@ local function playReplay(data)
         index = index + speed
         RunService.Heartbeat:Wait()
     end
-    isPlaying = false
+
+    if currentReplayToken == token then
+        currentReplayToken = nil
+    end
 end
 
 -- ====== Add Replay Item ======
@@ -277,7 +287,9 @@ function addReplayItem(saved, index)
         selectCheck.Text = saved.Selected and "☑" or "☐"
     end)
 
-    playBtn.MouseButton1Click:Connect(function() task.spawn(function() playReplay(saved.Frames) end) end)
+    playBtn.MouseButton1Click:Connect(function()
+        task.spawn(function() playReplay(saved.Frames) end)
+    end)
     pauseBtn.MouseButton1Click:Connect(function() isPaused = not isPaused end)
     delBtn.MouseButton1Click:Connect(function()
         table.remove(savedReplays, index)
